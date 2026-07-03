@@ -1,63 +1,53 @@
-const express = require("express");
-const cors = require("cors");
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
+
+const connectDB = require('./config/db');
+const initSocket = require('./socket');
+
+const authRoutes = require('./routes/authRoutes');
+const listingRoutes = require('./routes/listingRoutes');
+const profileRoutes = require('./routes/profileRoutes');
+const interestRoutes = require('./routes/interestRoutes');
+const chatRoutes = require('./routes/chatRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 const app = express();
+const server = http.createServer(app);
 
-app.use(cors());
-app.use(express.json());
+const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
-app.get("/", (req, res) => {
-    res.send("Backend Running");
+const io = new Server(server, {
+  cors: { origin: clientUrl, methods: ['GET', 'POST'] },
 });
 
-// Owner Register
-app.post("/owner/register", (req, res) => {
+app.use(cors({ origin: clientUrl }));
+app.use(express.json({ limit: '5mb' }));
 
-    console.log("Owner Register");
-    console.log(req.body);
+app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-    res.json({
-        message: "Owner Registered"
-    });
+app.use('/api/auth', authRoutes);
+app.use('/api/listings', listingRoutes);
+app.use('/api/profile', profileRoutes);
+app.use('/api/interests', interestRoutes);
+app.use('/api/chat', chatRoutes);
+app.use('/api/admin', adminRoutes);
 
+// Fallback 404 handler
+app.use((req, res) => res.status(404).json({ message: 'Route not found' }));
+
+// Generic error handler
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: 'Internal server error' });
 });
 
-// Owner Login
-app.post("/owner/login", (req, res) => {
+initSocket(io);
 
-    console.log("Owner Login");
-    console.log(req.body);
+const PORT = process.env.PORT || 5000;
 
-    res.json({
-        message: "Owner Logged In"
-    });
-
-});
-
-// Tenant Register
-app.post("/tenant/register", (req, res) => {
-
-    console.log("Tenant Register");
-    console.log(req.body);
-
-    res.json({
-        message: "Tenant Registered"
-    });
-
-});
-
-// Tenant Login
-app.post("/tenant/login", (req, res) => {
-
-    console.log("Tenant Login");
-    console.log(req.body);
-
-    res.json({
-        message: "Tenant Logged In"
-    });
-
-});
-
-app.listen(5000, () => {
-    console.log("Server running on port 5000");
+connectDB().then(() => {
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 });
